@@ -1,5 +1,5 @@
 from django import forms
-from .models import Event, RSVP, Comment
+from .models import Event, RSVP, Comment, Rating
 
 
 class EventForm(forms.ModelForm):
@@ -47,7 +47,13 @@ class RSVPForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ['content', 'rating']
+        fields = ['content',]
+
+
+class RatingForm(forms.ModelForm):
+    class Meta:
+        model = Rating
+        fields = ['value']
         widgets = {
-            'rating': forms.NumberInput(attrs={'min': 0, 'max': 5}),
+            'value': forms.NumberInput(attrs={'min': 0, 'max': 5}),
         }

@@ -1,12 +1,19 @@
 {% extends 'base.html' %}
-{% block title %}Edit Event{% endblock %}
-{% block content %}
-<h2>Create an Event</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Create Event</button>
-</form>
-<a href="{% url 'event_list' %}" class="btn btn-secondary mt-2">Cancel</a>
+
+{% block title %}
+    {% if object %}Update Event{% else %}Create Event{% endif %}
 {% endblock %}
 
+{% block content %}
+<div class="container mt-4">
+    <h1>{% if object %}Update Event{% else %}Create an Event{% endif %}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">
+            {% if object %}Save{% else %}Create Event{% endif %}
+        </button>
+        <a href="{% url 'event_list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

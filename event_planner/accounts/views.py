@@ -60,6 +60,12 @@ class ProfileUpdateView(LoginRequiredMixin, UpdateView):
         # Ensure the profile being edited belongs to the logged-in user
         return self.request.user.profile
 
+    def get_form_kwargs(self):
+        """Pass the logged-in user to the form for email validation."""
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user  # Pass the user instance
+        return kwargs
+
 
 class ProfileDetailView(LoginRequiredMixin, DetailView):
     model = Profile

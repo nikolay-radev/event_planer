@@ -1,15 +1,15 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.paginator import Paginator
 
-from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy, reverse
-from django.views.generic import DetailView, CreateView, UpdateView, DeleteView, View
+from django.views.generic import DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from .models import RSVP
-from .forms import EventForm, CommentForm
-from django.db.models import Q
+from .models import RSVP, Rating
+from .forms import EventForm, CommentForm, RatingForm
+from django.db.models import Q, Count
 from django.views.generic import ListView
 from .models import Event
 
@@ -18,7 +18,8 @@ class EventListView(ListView):
     model = Event
     template_name = 'events/event_list.html'
     context_object_name = 'events'
-    paginate_by = 10  # Limit to 10 events per page
+    paginate_by = 5  # Limit to 10 events per page
+    ordering = ['-date', '-time']
 
     def get_queryset(self):
         """Customize the queryset to handle search functionality."""
@@ -55,39 +56,87 @@ class EventDetailView(DetailView):
             if rsvp:
                 rsvp_status = rsvp.status
 
-        # Add RSVP status and comments to the context
+        # Add RSVP counts
+        rsvp_counts = self.object.rsvp_set.values('status').annotate(count=Count('status'))
+
+        # Add context for comments, average rating, RSVP counts, and forms
         context['rsvp_status'] = rsvp_status
+        context['rsvp_counts'] = rsvp_counts
         context['comments'] = self.object.comments.all()
         context['average_rating'] = self.object.average_rating()
-        context['form'] = CommentForm()  # Add the comment form to the context
+        context['comment_form'] = CommentForm()  # Comment form
+        context['rating_form'] = RatingForm()  # Rating form
 
         return context
 
     def post(self, request, *args, **kwargs):
         event = self.get_object()  # Get the event object
+        user = request.user
 
-        # Check if the submission is for comments
-        if 'content' in request.POST and 'rating' in request.POST:
+        # Ensure the user is authenticated
+        if not user.is_authenticated:
+            messages.error(request, "You need to log in to perform this action.")
+            return redirect('login')
+
+        # Handle RSVP submission
+        if 'rsvp_status' in request.POST:
+            rsvp_status = request.POST.get('rsvp_status')  # Get the RSVP status from the form
+            try:
+                # Check if an RSVP already exists for this event and user
+                rsvp = event.rsvp_set.filter(attendee=user).first()
+
+                if rsvp:
+                    # Update the existing RSVP status
+                    rsvp.status = rsvp_status
+                    rsvp.save()
+                    messages.success(request, "Your RSVP status has been updated successfully!")
+                else:
+                    # Create a new RSVP if it doesn't exist
+                    event.rsvp_set.create(attendee=user, status=rsvp_status)
+                    messages.success(request, "Your RSVP status has been submitted successfully!")
+            except Exception as e:
+                messages.error(request, f"An error occurred while updating your RSVP: {str(e)}")
+
+            return redirect('event_detail', pk=event.pk)
+
+        # Handle rating submission
+        if 'value' in request.POST:
+            rating_form = RatingForm(request.POST)
+            if rating_form.is_valid():
+                try:
+                    # Check if a rating already exists for this event and user
+                    rating = Rating.objects.filter(event=event, user=user).first()
+
+                    if rating:
+                        # Update the existing rating
+                        rating.value = rating_form.cleaned_data['value']
+                        rating.save()
+                        messages.success(request, "Your rating has been updated successfully!")
+                    else:
+                        # Create a new rating if it doesn't exist
+                        Rating.objects.create(
+                            event=event,
+                            user=user,
+                            value=rating_form.cleaned_data['value']
+                        )
+                        messages.success(request, "Your rating has been submitted successfully!")
+                except Exception as e:
+                    messages.error(request, f"An error occurred while processing your rating: {str(e)}")
+
+            return redirect('event_detail', pk=event.pk)
+
+        # Handle comment submission
+        if 'content' in request.POST:
             comment_form = CommentForm(request.POST)
             if comment_form.is_valid():
                 comment = comment_form.save(commit=False)
                 comment.event = event
-                comment.user = request.user
+                comment.user = user
                 comment.save()
+                messages.success(request, "Comment added successfully!")
                 return redirect('event_detail', pk=event.pk)
 
-        # Otherwise, handle RSVP submission
-        if not request.user.is_authenticated:
-            return redirect('login')
-
-        rsvp, created = RSVP.objects.get_or_create(event=event, attendee=request.user)
-        new_status = request.POST.get('status')
-
-        if new_status not in dict(RSVP.STATUS_CHOICES):
-            return HttpResponseForbidden("Invalid RSVP status.")
-
-        rsvp.status = new_status
-        rsvp.save()
+        # Default redirection
         return redirect('event_detail', pk=event.pk)
 
 
@@ -196,3 +245,24 @@ class EventRSVPView(View):
             return redirect('event_detail', pk=event.id)
         else:
             return redirect('login')
+
+
+class MyEventsView(LoginRequiredMixin, TemplateView):
+    template_name = 'events/my_events.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Fetch events organized by the logged-in user
+        organized_events = Event.objects.filter(organizer=self.request.user)
+        organized_paginator = Paginator(organized_events, 5)  # Paginate with 5 events per page
+        organized_page_number = self.request.GET.get('organized_page')
+        context['organized_events'] = organized_paginator.get_page(organized_page_number)
+
+        # Fetch events the user participates in
+        participating_events = Event.objects.filter(rsvp__attendee=self.request.user).distinct()
+        participating_paginator = Paginator(participating_events, 5)  # Paginate with 5 events per page
+        participating_page_number = self.request.GET.get('participating_page')
+        context['participating_events'] = participating_paginator.get_page(participating_page_number)
+
+        return context

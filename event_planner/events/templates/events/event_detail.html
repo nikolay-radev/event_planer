@@ -15,19 +15,66 @@
             <p><strong>Description:</strong> {{ event.description }}</p>
             <p><strong>Organizer:</strong> {{ event.organizer.username }}</p>
             <p><strong>Average Rating:</strong> {{ average_rating|floatformat:1 }}/5</p>
+
+            <!-- Edit and Delete Buttons -->
+            {% if user.is_authenticated and event.organizer == user %}
+                <div class="mt-4">
+                    <a href="{% url 'event_update' event.pk %}" class="btn btn-warning">Edit Details</a>
+                    <a href="{% url 'event_delete' event.pk %}" class="btn btn-danger">Delete Event</a>
+                </div>
+            {% endif %}
+
             <hr>
 
             <!-- Comments Section -->
             <h3>Comments</h3>
             {% if comments %}
                 {% for comment in comments %}
-                <div class="mb-3">
-                    <strong>{{ comment.user.username }}</strong> (Rating: {{ comment.rating }}/5)
-                    <p>{{ comment.content }}</p>
-                    <small class="text-muted">Posted on {{ comment.created_at|date:"F j, Y, g:i a" }}</small>
-                    <hr>
-                </div>
+                    <div class="mb-3">
+                        <strong>{{ comment.user.username }}</strong>
+                        {% if comment.rating > 0 %} (Rating: {{ comment.rating }}/5) {% endif %}
+                        <p>{{ comment.content }}</p>
+                        <small class="text-muted">Posted on {{ comment.created_at|date:"F j, Y, g:i a" }}</small>
+                        <hr>
+                    </div>
                 {% endfor %}
+
+                <!-- Pagination for Comments -->
+                <div class="pagination mt-4">
+                    <nav aria-label="Comments navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if comments.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1">First</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ comments.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            {% for page_num in comments.paginator.page_range %}
+                                {% if comments.number == page_num %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="#">{{ page_num }}</a>
+                                    </li>
+                                {% elif page_num >= comments.number|add:'-2' and page_num <= comments.number|add:'2' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if comments.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ comments.next_page_number }}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ comments.paginator.num_pages }}">Last</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
             {% else %}
                 <p>No comments yet. Be the first to comment!</p>
             {% endif %}
@@ -37,8 +84,15 @@
                 <h4>Leave a Comment:</h4>
                 <form method="post" action="">
                     {% csrf_token %}
-                    {{ form.as_p }}
-                    <button type="submit" class="btn btn-primary">Submit</button>
+                    {{ comment_form.as_p }}
+                    <button type="submit" class="btn btn-primary">Submit Comment</button>
+                </form>
+                <!-- Rating Form -->
+                <h4 class="mt-4">Leave a Rating:</h4>
+                <form method="post" action="">
+                    {% csrf_token %}
+                    {{ rating_form.as_p }}
+                    <button type="submit" class="btn btn-success">Submit Rating</button>
                 </form>
             {% else %}
                 <p>You cannot comment or rate your own event.</p>
@@ -49,14 +103,14 @@
         <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
+                    <h5>Your RSVP Status:</h5>
                     {% if user.is_authenticated %}
-                        <h5>Your RSVP Status:</h5>
                         <p>{{ rsvp_status }}</p>
                         <form method="post" action="">
                             {% csrf_token %}
                             <div class="mb-3">
                                 <label for="rsvp_status" class="form-label">Update Your Status:</label>
-                                <select class="form-select" name="status" id="rsvp_status">
+                                <select class="form-select" name="rsvp_status" id="rsvp_status">
                                     <option value="Going" {% if rsvp_status == 'Going' %}selected{% endif %}>Going</option>
                                     <option value="Interested" {% if rsvp_status == 'Interested' %}selected{% endif %}>Interested</option>
                                     <option value="Not Going" {% if rsvp_status == 'Not Going' %}selected{% endif %}>Not Going</option>
@@ -66,6 +120,23 @@
                         </form>
                     {% else %}
                         <p><a href="{% url 'login' %}">Login</a> to RSVP for this event.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5>RSVP Summary</h5>
+                    {% if rsvp_counts %}
+                        <ul class="list-group">
+                            {% for rsvp in rsvp_counts %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ rsvp.status }}:
+                                    <span class="badge bg-primary rounded-pill">{{ rsvp.count }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No RSVP data available yet.</p>
                     {% endif %}
                 </div>
             </div>

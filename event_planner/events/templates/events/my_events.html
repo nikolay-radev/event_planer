@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}My Events{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>My Events</h2>
+
+    <!-- Events You Organize -->
+    <h3 class="mt-4">Events You Organize</h3>
+    {% if organized_events %}
+        <ul class="list-group">
+            {% for event in organized_events %}
+                <li class="list-group-item">
+                    <a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a>
+                    <small class="text-muted"> - {{ event.date }} at {{ event.time }}</small>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Pagination for Organized Events -->
+        <div class="pagination mt-4">
+            <nav aria-label="Organized Events navigation">
+                <ul class="pagination justify-content-center">
+                    {% if organized_events.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?organized_page=1&participating_page={{ participating_events.number }}">First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?organized_page={{ organized_events.previous_page_number }}&participating_page={{ participating_events.number }}">Previous</a>
+                        </li>
+                    {% endif %}
+
+                    {% for page_num in organized_events.paginator.page_range %}
+                        {% if organized_events.number == page_num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ page_num }}</a>
+                            </li>
+                        {% elif page_num >= organized_events.number|add:'-2' and page_num <= organized_events.number|add:'2' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?organized_page={{ page_num }}&participating_page={{ participating_events.number }}">{{ page_num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if organized_events.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?organized_page={{ organized_events.next_page_number }}&participating_page={{ participating_events.number }}">Next</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?organized_page={{ organized_events.paginator.num_pages }}&participating_page={{ participating_events.number }}">Last</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% else %}
+        <p>You have not created any events yet.</p>
+    {% endif %}
+
+    <!-- Events You Participate In -->
+    <h3 class="mt-4">Events You Participate In</h3>
+    {% if participating_events %}
+        <ul class="list-group">
+            {% for event in participating_events %}
+                <li class="list-group-item">
+                    <a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a>
+                    <small class="text-muted"> - {{ event.date }} at {{ event.time }}</small>
+                </li>
+            {% endfor %}
+        </ul>
+
+        <!-- Pagination for Participating Events -->
+        <div class="pagination mt-4">
+            <nav aria-label="Participating Events navigation">
+                <ul class="pagination justify-content-center">
+                    {% if participating_events.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?participating_page=1&organized_page={{ organized_events.number }}">First</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?participating_page={{ participating_events.previous_page_number }}&organized_page={{ organized_events.number }}">Previous</a>
+                        </li>
+                    {% endif %}
+
+                    {% for page_num in participating_events.paginator.page_range %}
+                        {% if participating_events.number == page_num %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ page_num }}</a>
+                            </li>
+                        {% elif page_num >= participating_events.number|add:'-2' and page_num <= participating_events.number|add:'2' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?participating_page={{ page_num }}&organized_page={{ organized_events.number }}">{{ page_num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if participating_events.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?participating_page={{ participating_events.next_page_number }}&organized_page={{ organized_events.number }}">Next</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?participating_page={{ participating_events.paginator.num_pages }}&organized_page={{ organized_events.number }}">Last</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    {% else %}
+        <p>You are not participating in any events yet.</p>
+    {% endif %}
+
+    <a href="{% url 'event_create' %}" class="btn btn-primary mt-3">Create New Event</a>
+</div>
+{% endblock %}

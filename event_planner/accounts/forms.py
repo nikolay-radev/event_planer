@@ -47,7 +47,46 @@ class CustomLoginForm(AuthenticationForm):
     )
 
 
+User = get_user_model()
+
+
 class ProfileForm(forms.ModelForm):
+    email = forms.EmailField(required=True, label="Email")  # Add email field for update
+
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'profile_picture', 'address', 'phone_number']
+        fields = ['profile_picture', 'email', 'first_name', 'last_name', 'address', 'phone_number',]
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)  # Accept the user instance
+        super().__init__(*args, **kwargs)
+        if user:
+            self.user = user
+            self.fields['email'].initial = user.email  # Prepopulate the email with the current email of the user
+            self.fields['profile_picture'].widget.attrs.update({
+                'class': 'form-control'
+            })
+
+            profile_picture = forms.ImageField(
+                required=False,
+                widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
+                label='Change Profile Picture'
+            )
+
+    def clean_email(self):
+        """Ensure the email is unique."""
+        email = self.cleaned_data['email']
+        existing_user = User.objects.filter(email=email).exclude(pk=self.user.pk).first()
+        if existing_user:
+            raise forms.ValidationError("This email is already in use by another account.")
+        return email
+
+    def save(self, commit=True):
+        """Save the profile and update the user's email."""
+        profile = super().save(commit=False)
+        if commit:
+            profile.save()
+            # Update the user's email
+            self.user.email = self.cleaned_data['email']
+            self.user.save()
+        return profile

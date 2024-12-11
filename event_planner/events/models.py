@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import UniqueConstraint
 from django.urls import reverse
 from event_planner.accounts.models import CustomUser
 
@@ -17,8 +18,8 @@ class Event(models.Model):
     date = models.DateField()
     time = models.TimeField()
     location = models.CharField(max_length=255)
-    organizer = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    organizer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.title
@@ -28,7 +29,8 @@ class Event(models.Model):
         return reverse('event_detail', kwargs={'pk': self.pk})
 
     def average_rating(self):
-        ratings = self.comments.filter(rating__gt=0).values_list('rating', flat=True)
+        """Calculate the average rating for the event."""
+        ratings = self.ratings.values_list('value', flat=True)
         return sum(ratings) / len(ratings) if ratings else 0
 
 
@@ -36,11 +38,24 @@ class Comment(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='comments')
     content = models.TextField()
-    rating = models.IntegerField(default=0)  # Rating from 0 to 5
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Comment by {self.user.username} on {self.event.title}"
+
+
+class Rating(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='ratings')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='ratings')
+    value = models.IntegerField(default=0, choices=[(i, i) for i in range(0, 6)])  # Ratings 0 to 5
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=['event', 'user'], name='unique_event_user_rating')
+        ]
+
+    def __str__(self):
+        return f"Rating {self.value}/5 for {self.event.title} by {self.user.username}"
 
 
 class RSVP(models.Model):
