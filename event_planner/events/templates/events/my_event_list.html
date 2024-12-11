@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}My Events{% endblock %}
+{% block content %}
+<h2>My Events</h2>
+{% if events %}
+    <ul class="list-group">
+        {% for event in events %}
+            <li class="list-group-item">
+                <a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a>
+                <span class="badge bg-primary">{{ event.date }}</span>
+                <div class="mt-2">
+                    <a href="{% url 'event_update' event.pk %}" class="btn btn-warning btn-sm">Edit</a>
+                    <a href="{% url 'event_delete' event.pk %}" class="btn btn-danger btn-sm">Delete</a>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>You have not created any events yet.</p>
+{% endif %}
+<a href="{% url 'event_create' %}" class="btn btn-primary mt-3">Create New Event</a>
+{% endblock %}
